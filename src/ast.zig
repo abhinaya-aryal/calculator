@@ -1,7 +1,5 @@
 const std = @import("std");
-const Tokenizer = @import("tokenizer.zig");
-const Token = Tokenizer.Token;
-const TokenKind = Tokenizer.TokenKind;
+const tokenizer = @import("tokenizer.zig");
 
 pub const ParserError = error{
     InvalidToken,
@@ -47,11 +45,11 @@ pub const Expr = union(enum) {
 
 const BinaryExpr = struct {
     left: *Expr,
-    operator: Token,
+    operator: tokenizer.Token,
     right: *Expr,
 };
 
 const UnaryExpr = struct {
-    operator: Token,
+    operator: tokenizer.Token,
     operand: *Expr,
 };

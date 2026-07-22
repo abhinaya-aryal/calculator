@@ -1,6 +1,6 @@
 const std = @import("std");
 const parser = @import("parser.zig");
-const Expr = @import("ast.zig").Expr;
+const ast = @import("ast.zig");
 
 pub const EvaluateError = error{
     InvalidExpression,
@@ -11,7 +11,7 @@ pub const EvaluateError = error{
 pub const Evaluator = struct {
     const Self = @This();
 
-    pub fn evaluate(self: *Self, expr: *const Expr) EvaluateError!f64 {
+    pub fn evaluate(self: *Self, expr: *const ast.Expr) EvaluateError!f64 {
         switch (expr.*) {
             .number => |value| {
                 return value;

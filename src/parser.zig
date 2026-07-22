@@ -2,10 +2,6 @@ const std = @import("std");
 const tokenizer = @import("tokenizer.zig");
 const ast = @import("ast.zig");
 
-const Tokenizer = tokenizer.Tokenizer;
-const TokenKind = tokenizer.TokenKind;
-const Token = tokenizer.Token;
-
 pub const ParserError = error{
     InvalidToken,
     ExpectedExpression,
@@ -16,7 +12,7 @@ pub const Parser = struct {
     const Self = @This();
 
     allocator: std.mem.Allocator,
-    tokens: []const Token,
+    tokens: []const tokenizer.Token,
     current: usize = 0,
 
     /// **Initializes** a Parser
@@ -25,7 +21,7 @@ pub const Parser = struct {
     /// - `allocator`: Memory allocator use for parsing
     /// - `tokens`: Slice of `Token` to parse
     ///
-    pub fn init(allocator: std.mem.Allocator, tokens: []const Token) Self {
+    pub fn init(allocator: std.mem.Allocator, tokens: []const tokenizer.Token) Self {
         return .{
             .allocator = allocator,
             .tokens = tokens,
@@ -125,15 +121,15 @@ pub const Parser = struct {
         return self.peek().?.kind == .eof;
     }
 
-    fn peek(self: *const Self) ?Token {
+    fn peek(self: *const Self) ?tokenizer.Token {
         return self.tokens[self.current];
     }
 
-    fn previous(self: *const Self) Token {
+    fn previous(self: *const Self) tokenizer.Token {
         return self.tokens[self.current - 1];
     }
 
-    fn advance(self: *Self) ?Token {
+    fn advance(self: *Self) ?tokenizer.Token {
         if (self.isAtEnd()) return null;
 
         const token = self.tokens[self.current];
@@ -141,13 +137,13 @@ pub const Parser = struct {
         return token;
     }
 
-    fn check(self: *const Self, kind: TokenKind) bool {
+    fn check(self: *const Self, kind: tokenizer.TokenKind) bool {
         if (self.isAtEnd()) return false;
 
         return self.peek().?.kind == kind;
     }
 
-    fn match(self: *Self, kinds: []const TokenKind) bool {
+    fn match(self: *Self, kinds: []const tokenizer.TokenKind) bool {
         for (kinds) |kind| {
             if (self.check(kind)) {
                 _ = self.advance();
@@ -157,7 +153,7 @@ pub const Parser = struct {
         return false;
     }
 
-    fn consume(self: *Self, kind: TokenKind) !Token {
+    fn consume(self: *Self, kind: tokenizer.TokenKind) !tokenizer.Token {
         if (self.check(kind)) {
             return self.advance().?;
         }
@@ -168,7 +164,7 @@ pub const Parser = struct {
 test "parse single number" {
     const allocator = std.testing.allocator;
 
-    var tok = Tokenizer.init(allocator, "42");
+    var tok = tokenizer.Tokenizer.init(allocator, "42");
 
     const tokens = try tok.tokenize();
     defer allocator.free(tokens);
@@ -189,7 +185,7 @@ test "parse single number" {
 test "parse unary minus" {
     const allocator = std.testing.allocator;
 
-    var tok = Tokenizer.init(allocator, "-5");
+    var tok = tokenizer.Tokenizer.init(allocator, "-5");
 
     const tokens = try tok.tokenize();
     defer allocator.free(tokens);
@@ -201,7 +197,7 @@ test "parse unary minus" {
 
     switch (expr.*) {
         .unary => |u| {
-            try std.testing.expectEqual(TokenKind.minus, u.operator.kind);
+            try std.testing.expectEqual(tokenizer.TokenKind.minus, u.operator.kind);
 
             switch (u.operand.*) {
                 .number => |value| {
@@ -217,7 +213,7 @@ test "parse unary minus" {
 test "parse multiplication" {
     const allocator = std.testing.allocator;
 
-    var tok = Tokenizer.init(allocator, "2 * 3");
+    var tok = tokenizer.Tokenizer.init(allocator, "2 * 3");
 
     const tokens = try tok.tokenize();
     defer allocator.free(tokens);
@@ -229,7 +225,7 @@ test "parse multiplication" {
 
     switch (expr.*) {
         .binary => |b| {
-            try std.testing.expectEqual(TokenKind.star, b.operator.kind);
+            try std.testing.expectEqual(tokenizer.TokenKind.star, b.operator.kind);
 
             switch (b.left.*) {
                 .number => |v| try std.testing.expectEqual(@as(f64, 2), v),
@@ -248,7 +244,7 @@ test "parse multiplication" {
 test "parse grouping" {
     const allocator = std.testing.allocator;
 
-    var tok = Tokenizer.init(
+    var tok = tokenizer.Tokenizer.init(
         allocator,
         "(2 + 3)",
     );
@@ -266,7 +262,7 @@ test "parse grouping" {
             switch (inner.*) {
                 .binary => |b| {
                     try std.testing.expectEqual(
-                        TokenKind.plus,
+                        tokenizer.TokenKind.plus,
                         b.operator.kind,
                     );
 
