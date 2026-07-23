@@ -6,7 +6,7 @@ pub const ParserError = error{
     InvalidToken,
     ExpectedExpression,
     ExpectedRightParen,
-};
+} || std.mem.Allocator.Error || std.fmt.ParseFloatError;
 
 pub const Parser = struct {
     const Self = @This();
@@ -29,15 +29,15 @@ pub const Parser = struct {
     }
 
     /// **Parses** tokens provided through `init`
-    pub fn parse(self: *Self) anyerror!*ast.Expr {
+    pub fn parse(self: *Self) ParserError!*ast.Expr {
         return self.expression();
     }
 
-    fn expression(self: *Self) anyerror!*ast.Expr {
+    fn expression(self: *Self) ParserError!*ast.Expr {
         return self.term();
     }
 
-    fn term(self: *Self) anyerror!*ast.Expr {
+    fn term(self: *Self) ParserError!*ast.Expr {
         var expr = try self.factor();
 
         while (self.match(&.{ .plus, .minus })) {
@@ -57,7 +57,7 @@ pub const Parser = struct {
         return expr;
     }
 
-    fn factor(self: *Self) anyerror!*ast.Expr {
+    fn factor(self: *Self) ParserError!*ast.Expr {
         var expr = try self.unary();
 
         while (self.match(&.{ .star, .slash, .percent })) {
@@ -74,7 +74,7 @@ pub const Parser = struct {
         return expr;
     }
 
-    fn primary(self: *Self) anyerror!*ast.Expr {
+    fn primary(self: *Self) ParserError!*ast.Expr {
         if (self.match(&.{.number})) {
             const token = self.previous();
             const value = try std.fmt.parseFloat(f64, token.lexeme);
@@ -101,7 +101,7 @@ pub const Parser = struct {
         return ParserError.ExpectedExpression;
     }
 
-    fn unary(self: *Self) anyerror!*ast.Expr {
+    fn unary(self: *Self) ParserError!*ast.Expr {
         if (self.match(&.{ .plus, .minus })) {
             const operator = self.previous();
             const operand = try self.unary();
