@@ -1,73 +1,145 @@
 const std = @import("std");
 const tokenizer = @import("tokenizer.zig");
 const parser = @import("parser.zig");
-const evaluator = @import("evaluator.zig");
+const ast = @import("ast.zig");
 
-pub const Error = tokenizer.TokenizeError || parser.ParserError || evaluator.EvaluateError || std.mem.Allocator.Error || std.fmt.ParseFloatError;
+pub const Error = tokenizer.TokenizeError || parser.ParserError || EvaluateError || std.mem.Allocator.Error || std.fmt.ParseFloatError;
 
-pub fn calculate(allocator: std.mem.Allocator, input: []const u8) Error!f64 {
-    var tok = tokenizer.Tokenizer.init(allocator, input);
+pub const EvaluateError = error{
+    InvalidExpression,
+    InvalidOperator,
+    DivisionByZero,
+};
 
-    const tokens = try tok.tokenize();
-    defer allocator.free(tokens);
+pub const Calculator = struct {
+    const Self = @This();
+    allocator: std.mem.Allocator,
 
-    var p = parser.Parser.init(allocator, tokens);
+    pub fn init(allocator: std.mem.Allocator) Self {
+        return .{
+            .allocator = allocator,
+        };
+    }
 
-    const expression = try p.parse();
-    defer expression.destroy(allocator);
+    pub fn calculate(self: *Self, input: []const u8) Error!f64 {
+        var tok = tokenizer.Tokenizer.init(self.allocator, input);
 
-    var eval = evaluator.Evaluator{};
-    return eval.evaluate(expression);
-}
+        const tokens = try tok.tokenize();
+        defer self.allocator.free(tokens);
+
+        var p = parser.Parser.init(self.allocator, tokens);
+
+        const expression = try p.parse();
+        defer expression.destroy(self.allocator);
+
+        return self.evaluate(expression);
+    }
+
+    fn evaluate(self: *Self, expr: *const ast.Expr) EvaluateError!f64 {
+        switch (expr.*) {
+            .number => |value| {
+                return value;
+            },
+            .grouping => |node| {
+                return self.evaluate(node);
+            },
+            .unary => |node| {
+                const operand_value = try self.evaluate(node.operand);
+
+                return switch (node.operator.kind) {
+                    .plus => operand_value,
+                    .minus => -operand_value,
+                    else => EvaluateError.InvalidOperator,
+                };
+            },
+            .binary => |node| {
+                const left = try self.evaluate(node.left);
+                const right = try self.evaluate(node.right);
+
+                switch (node.operator.kind) {
+                    .plus => {
+                        return left + right;
+                    },
+                    .minus => {
+                        return left - right;
+                    },
+                    .star => {
+                        return left * right;
+                    },
+                    .slash => {
+                        if (right == 0) return EvaluateError.DivisionByZero;
+                        return left / right;
+                    },
+                    .percent => {
+                        return @mod(left, right);
+                    },
+                    else => {
+                        return EvaluateError.InvalidOperator;
+                    },
+                }
+            },
+        }
+    }
+};
 
 test "evaluate number" {
-    const result = try calculate(std.testing.allocator, "42");
+    var calculator = Calculator.init(std.testing.allocator);
+    const result = try calculator.calculate("42");
     try std.testing.expectEqual(@as(f64, 42), result);
 }
 
 test "evaluate unary minus" {
-    const result = try calculate(std.testing.allocator, "-5");
+    var calculator = Calculator.init(std.testing.allocator);
+    const result = try calculator.calculate("-5");
     try std.testing.expectEqual(@as(f64, -5), result);
 }
 
 test "evaluate addition" {
-    const result = try calculate(std.testing.allocator, "3 + 2");
+    var calculator = Calculator.init(std.testing.allocator);
+    const result = try calculator.calculate("3 + 2");
     try std.testing.expectEqual(@as(f64, 5), result);
 }
 
 test "evaluate multiplication" {
-    const result = try calculate(std.testing.allocator, "3 * 2");
+    var calculator = Calculator.init(std.testing.allocator);
+    const result = try calculator.calculate("3 * 2");
     try std.testing.expectEqual(@as(f64, 6), result);
 }
 
 test "evaluate operator precedence" {
-    const result = try calculate(std.testing.allocator, "2 + 3 * 4");
+    var calculator = Calculator.init(std.testing.allocator);
+    const result = try calculator.calculate("2 + 3 * 4");
     try std.testing.expectEqual(@as(f64, 14), result);
 }
 
 test "evaluate grouping" {
-    const result = try calculate(std.testing.allocator, "(2 + 3) * 4");
+    var calculator = Calculator.init(std.testing.allocator);
+    const result = try calculator.calculate("(2 + 3) * 4");
     try std.testing.expectEqual(@as(f64, 20), result);
 }
 
 test "evaluate mixed expression" {
-    const result = try calculate(std.testing.allocator, "12/4+2*3");
+    var calculator = Calculator.init(std.testing.allocator);
+    const result = try calculator.calculate("12/4+2*3");
     try std.testing.expectEqual(@as(f64, 9), result);
 }
 
 test "evaluate nested unary" {
-    const result = try calculate(std.testing.allocator, "--5");
+    var calculator = Calculator.init(std.testing.allocator);
+    const result = try calculator.calculate("--5");
     try std.testing.expectEqual(@as(f64, 5), result);
 }
 
 test "evaluate modulo" {
-    const result = try calculate(std.testing.allocator, "10 % 3");
+    var calculator = Calculator.init(std.testing.allocator);
+    const result = try calculator.calculate("10 % 3");
     try std.testing.expectEqual(@as(f64, 1), result);
 }
 
 test "division by zero" {
+    var calculator = Calculator.init(std.testing.allocator);
     try std.testing.expectError(
         Error.DivisionByZero,
-        calculate(std.testing.allocator, "10 / 0"),
+        calculator.calculate("10 / 0"),
     );
 }
