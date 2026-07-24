@@ -5,7 +5,7 @@ const ast = @import("ast.zig");
 
 pub const Error = tokenizer.TokenizeError || parser.ParserError || EvaluateError || std.mem.Allocator.Error || std.fmt.ParseFloatError;
 
-pub const EvaluateError = error{
+const EvaluateError = error{
     InvalidExpression,
     InvalidOperator,
     DivisionByZero,
